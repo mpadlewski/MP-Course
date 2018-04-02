@@ -1,0 +1,83 @@
+#lang racket
+
+;;zaimplementuj drzewo binarne
+;;konstruktory, selektory, predykaty ktore przechowuja wartosci w lisciach
+;;funkcja zliczajaca ile w drzewie znajduje sie zer
+
+(define (make-bt left right)
+  (list 'node left right))
+
+(define (bt-left tree)
+  (second tree))
+
+(define (bt-right tree)
+  (third tree))
+
+(define (btree? t)
+  (or (leaf? t)
+      (and (nie wiem)
+           (btree? (bt-left t))
+           (btree? (bt-right t)))))
+
+(define (make-leaf val)
+  (list 'leaf val))
+
+(define (leaf-val l)
+  (second l))
+
+(define (leaf? l)
+  (and (list? l)
+       (= (length l) 2)
+       (eq? (first l) 'leaf)))
+
+(define (node? x)
+  (and (list? x)
+       (= (length x) 3)
+       (eq? (first x) 'node)))
+
+(define (how-many-0 t)
+  
+
+
+
+
+
+;;; drzewa binarne
+
+(define (node-val x)
+  (cadr x))
+
+(define (node-left x)
+  (caddr x))
+
+(define (node-right x)
+  (cadddr x))
+
+(define (make-node v l r)
+  (list 'node v l r))
+
+(define (tree? t)
+  (or (leaf? t)
+      (and (node? t)
+           (tree? (node-left t))
+           (tree? (node-right t)))))
+
+;;; wyszukiwanie i wstawianie w drzewach przeszukiwań binarnych
+
+(define (bst-find x t)
+  (cond [(leaf? t)          false]
+        [(= x (node-val t)) true]
+        [(< x (node-val t)) (bst-find x (node-left t))]
+        [(> x (node-val t)) (bst-find x (node-right t))]))
+
+(define (bst-insert x t)
+  (cond [(leaf? t)
+         (make-node x leaf leaf)]
+        [(< x (node-val t))
+         (make-node (node-val t)
+                    (bst-insert x (node-left t))
+                    (node-right t))]
+        [else
+         (make-node (node-val t)
+                    (node-left t)
+                    (bst-insert x (node-right t)))]))
