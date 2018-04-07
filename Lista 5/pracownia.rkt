@@ -147,7 +147,7 @@
 
 (define (sorted-varlist? x)
   (and (list? x)
-       (andmap var? x)
+       (andmap var? x) ;; tu byl bug
        (sorted? x)))
 
 ;; klauzulę reprezentujemy jako parę list — osobno wystąpienia pozytywne i negatywne. Dodatkowo
@@ -327,22 +327,17 @@
 
 
 (define (generate-valuation resolved)
-  ;; Ta implementacja mówi tylko że formuła może być spełniona, ale nie mówi jak.
-  ;; resolved to lista klauzul w postaci res-clause
-  ;; trzeba obliczyc wartosciowanie spelniajace je wszystkie 
-  ;; (list 'sat (list (list 'x #t) ...))  
+
+  ;; poszukiwanie nowego wartosciowania i dodawanie go do listy wszystkich wart.
   (define (add-new-var clauses curr-vals)
-  ;;wchodzi do pierwszej klauzuli
-  ;;bierze pierwsza zmienna i sprawdza czy nie ma juz jej na liscie wartosci
-  ;;jesli tak to bierze kolejna, jesli nie to bierze te zmienna
-  ;;jak jest w pozytywnych to daje jej #t, wpp #f i appenduje do old-list (list var value)
+  
+    ;; procedura zwraca zmienna z listy l, ktorej nie ma na liscie wartosciowan
     (define (var-without-val l)
-    ;; procedura zwraca zmienna z listy l ktorej nie ma na liscie wartosciowan
       (cond [(null? l) #f]
             [(not (var-in-list-of-pairs? (car l) curr-vals)) (car l)]
             [else (var-without-val (cdr l))]))
 
-  ;;iterujemy sie po wszystkich klauzulach az nie spotkamy zmiennej bez wartosciowania
+    ;;iterujemy sie po wszystkich klauzulach az nie spotkamy zmiennej bez wartosciowania
     (define (iter cls)
       (if (null? cls)
           #f
@@ -357,28 +352,28 @@
     (iter clauses))
 
   (define (simplify-clause c var)
-    ;; bierze klauzule i pare (zmienna, wartosc)
-    ;; jesli np zmienna wystepuje w pozytywnych i jest #t to zwracasz null bo ją wywalimy w ogole
-    ;; jesli zmienna nie wystepuje w ogole to zwracam ta sama klauzule
-    ;; jesli np x = #t a x jest w negatywnych to usuwam x z negatywnych i odwrtownie z pos
+    ;; Upraszczanie procedury za pomoca wartosciowania zmiennej var
+    ;; var przechowuje jako lista (zmienna wartosc)
     (cond [(and (not (var-on-sorted-list? (car var) (res-clause-pos c))) (not (var-on-sorted-list? (car var) (res-clause-neg c)))) c]
-          [(or (and (var-on-sorted-list? (car var) (res-clause-pos c)) (eq? (cdr var) #t))
-               (and (var-on-sorted-list? (car var) (res-clause-neg c)) (eq? (cdr var) #f))) null]
+          [(or (and (var-on-sorted-list? (car var) (res-clause-pos c)) (eq? (cadr var) #t))
+               (and (var-on-sorted-list? (car var) (res-clause-neg c)) (eq? (cadr var) #f))) null]
           
-          [(and (var-on-sorted-list? (car var) (res-clause-pos c)) (eq? (cdr var) #f)) (res-clause (remove (car var) (res-clause-pos c))
+          [(and (var-on-sorted-list? (car var) (res-clause-pos c)) (eq? (cadr var) #f)) (res-clause (remove (car var) (res-clause-pos c))
                                                                                   (res-clause-neg c)
                                                                                   (res-clause-proof c))]
-          [(and (var-on-sorted-list? (car var) (res-clause-neg c)) (eq? (cdr var) #t)) (res-clause (res-clause-pos c)
+          [(and (var-on-sorted-list? (car var) (res-clause-neg c)) (eq? (cadr var) #t)) (res-clause (res-clause-pos c)
                                                                                   (remove (car var) (res-clause-neg c))
                                                                                   (res-clause-proof c))]))
   (define (simplify-clauses-list l var)
+    ;; Upraszczanie listy klauzul za pomoca wartosciowania zmiennej var
     (define (iter l acc)
       (cond [(null? l) acc]
             [(null? (simplify-clause (car l) var)) (iter (cdr l) acc)]
-            [else (iter (cdr l) (append acc (simplify-clause (car l) var)))]))
+            [else (iter (cdr l) (cons (simplify-clause (car l) var) acc))]))
     (iter l null))
 
   (define (main-iter clauses vals)
+    ;; Glowna procedura iterujaca po klauzulach, tworzy nowe wartosciowania i upraszcza klauzule
     (if (null? clauses)
         (list 'sat vals)
         (let*
@@ -388,49 +383,7 @@
           (main-iter new-clauses c-vals))))
 
   (main-iter resolved null)) 
-  
-
-
-(define clss (list (res-clause '(p r) '(q s) null) (res-clause '(p s) '(r t) null)))
-;;(add-new-var clss '((p #t)))
-
-
-
-(define lval (list (list 'p #t) (list 'b #f) (list 'a #t)))
-;(var-without-val '(p q s) lval)
-
-(define (simplify-clause c var)
-    ;; bierze klauzule i pare (zmienna, wartosc)
-    ;; jesli np zmienna wystepuje w pozytywnych i jest #t to zwracasz null bo ją wywalimy w ogole
-    ;; jesli zmienna nie wystepuje w ogole to zwracam ta sama klauzule
-    ;; jesli np x = #t a x jest w negatywnych to usuwam x z negatywnych i odwrtownie z pos
-    (cond [(and (not (var-on-sorted-list? (car var) (res-clause-pos c))) (not (var-on-sorted-list? (car var) (res-clause-neg c)))) c]
-          [(or (and (var-on-sorted-list? (car var) (res-clause-pos c)) (eq? (cdr var) #t))
-               (and (var-on-sorted-list? (car var) (res-clause-neg c)) (eq? (cdr var) #f))) null]
-          
-          [(and (var-on-sorted-list? (car var) (res-clause-pos c)) (eq? (cdr var) #f)) (res-clause (remove (car var) (res-clause-pos c))
-                                                                                  (res-clause-neg c)
-                                                                                  (res-clause-proof c))]
-          [(and (var-on-sorted-list? (car var) (res-clause-neg c)) (eq? (cdr var) #t)) (res-clause (res-clause-pos c)
-                                                                                  (remove (car var) (res-clause-neg c))
-                                                                                  (res-clause-proof c))]))
-  (define (simplify-clauses-list l var)
-    (define (iter l acc)
-      (cond [(null? l) acc]
-            [(null? (simplify-clause (car l) var)) (iter (cdr l) acc)]
-            [else (iter (cdr l) (append acc (simplify-clause (car l) var)))]))
-    (iter l null))
-     
-
-  
-
-
-
-(define cl1 (res-clause '(p q r) '(s t) '(axiom p)))
-(define cl2 (res-clause '(q r) '(p t) '(axiom s)))
-(define cl3 (res-clause '(s t) '(q r) '(axiom r)))
-(simplify-clauses-list (list cl1 cl2 cl3) (cons 'p #t))
-
+   
 
 ;; procedura przetwarzające wejściowy CNF na wewnętrzną reprezentację klauzul
 (define (form->clauses f)
@@ -467,17 +420,17 @@
         (valuate-partial pf-val form)
         (check-proof pf-val form))))
 
-;;; TODO: poniżej wpisz swoje testy
 
 ;;TEST RESOLVE
+
 #|(define cla1 (clause (literal #t 'p) (literal #t 'q) (literal #f 'r)))
 (define cla2 (clause (literal #t 'p) (literal #t 'r) (literal #f 's)))
 (define f (form->clauses (cnf cla1 cla2)))
 (define rc (resolve (car f) (cadr f)))
 rc
 (display "Dowód poprawny? ")
-(res-clause? rc)
-;; poprawny wynik: p v q v ~s|#
+(res-clause? rc)|#
+;; poprawny wynik: p v q v ~s
 
 
 
@@ -493,7 +446,15 @@ rc
                   (clause (literal #f 'q) (literal #t 'r))
                   (clause (literal #f 'r) (literal #t 'p))))
 
-(define cnf2-clause (form->clauses cnf2)) ;;klauzula prawdziwa sie zapetla
+(define cnf2-clause (form->clauses cnf2)) ;;klauzula prawdziwa ale program sie zapetla
+
+(define cnf3 (cnf (clause (literal #f 'p) (literal #t 'q))
+                  (clause (literal #f 'p) (literal #f 'r) (literal #t 's))
+                  (clause (literal #f 'q) (literal #t 'r))
+                  (clause (literal #t 'p))
+                  (clause (literal #f 's))))
+
+(define cnf3-clause (form->clauses cnf3))
 
 (define cnf4 (cnf (clause (literal #t 'p) (literal #t 'q))
                   (clause (literal #t 'r) (literal #f 'p))
@@ -502,15 +463,15 @@ rc
 
 (define cnf4-clause (form->clauses cnf4)) ;;klauzula prawdziwa
 
-(define cnf3 (cnf (clause (literal #f 'p) (literal #t 'q))
+(define cnf5 (cnf (clause (literal #f 'p) (literal #t 'q))
                   (clause (literal #f 'p) (literal #f 'r) (literal #t 's))
-                  (clause (literal #f 'q) (literal #t 'r))
-                  (clause (literal #t 'p))
-                  (clause (literal #f 's))))
+                  (clause (literal #f 'q) (literal #t 'r))))
+
+(define cnf5-clause (form->clauses cnf5)) ;;klauzula prawdziwa
 
 
 ;;TEST DOWODU
-;;(resolve-prove null cnf1-clause)
-;;(resolve-prove null cnf3-clause)
-;;(resolve-prove null cnf4-clause)
-;;(prove-and-check cnf1)
+#|(resolve-prove null cnf1-clause)
+(resolve-prove null cnf3-clause) ;; wynikiem powinien byc dowod
+(resolve-prove null cnf5-clause) ;; wynikiem powinno byc wartosciowanie
+(prove-and-check cnf1)|#
